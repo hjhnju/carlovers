@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+	<title>地点位置标注</title>
+	<style type="text/css">
+		body{
+			margin:0;
+			height:100%;
+			width:100%;
+			position:absolute;
+			font-size:12px;
+		}
+		#mapContainer{
+			float: left;
+            width: 65%;
+            height: 100%;
+			margin-left: 20px;
+		}
+
+		#tip{
+			height: 820px;
+			background-color: #fff;
+			padding-left: 10px;
+			padding-right: 10px;
+			 
+			font-size: 12px;
+			border-radius: 3px;
+			line-height: 30px;
+			border:1px solid #ccc;
+			float: left;
+            width: 30%;
+		}
+        #tip .input{
+			border:1px solid #ddd;
+			height:23px;
+			border-radius:3px;
+			outline:none; 
+			width: 160px;
+        }
+
+		#tip .button{
+			border:1px solid #ddd;
+			height:23px;
+			border-radius:3px;
+			outline:none;
+            cursor: pointer; 
+        }        
+        #tip .button:hover{
+            background-color: yellowgreen;
+        }
+        .addrlist{
+    	    height: 700px;
+            overflow-y: scroll;
+            list-style: none;
+            margin: 0px;
+            padding: 0px;
+        }
+        .addrlist li{
+            padding-left: 10px;
+        	border-bottom: 1px dashed grey;
+        	cursor: pointer;
+        }
+        .addrlist li:hover {
+            color: red;
+        }
+        #maptips {
+            height: 30px;
+            background-color: #fff;
+            padding-left: 10px;
+            padding-right: 10px;
+            position: absolute;
+            font-size: 12px;
+            right: 10px;
+            bottom: 30px;
+            border-radius: 3px;
+            line-height: 30px;
+            border: 1px solid #ccc;
+            z-index: 99;
+        }
+        .color-red{
+        	color: red;
+        }
+	</style>
+</head>
+<body> 
+<script src="http://libs.baidu.com/jquery/1.10.2/jquery.min.js">
+</script>
+<script type="text/javascript"> 
+var arr = new Array();
+    //写文件
+    function writeFile(){		
+        var x = document.getElementById("lngX").value;
+		var y = document.getElementById("latY").value; 
+		var index = document.getElementById("id").value;
+		var tempStr = arr[index]['des'].replace(/,/,"|");
+        var filecontent = arr[index]['ind']+","+x+","+y;
+        var text = document.getElementById(index).innerHTML;
+        if(-1 == text.search(/已标注/)){
+            document.getElementById(index).innerHTML = text + "&nbsp;&nbsp;已标注";
+        }
+        arr[index-1]['x'] = x;
+        arr[index-1]['y'] = y;
+        arr[index-1]['marked'] = 1;
+        //get请求字符串
+        $.get("/location/api/write?line="+filecontent,function(data,status){
+        });
+	}
+
+	function readFile(){
+			$.get("/location/api/read",function(data,status){
+			arr = data.data;
+			for(var j = 0; j < arr.length; j++){
+			   var ind = arr[j]['ind'];
+			   var loc = arr[j]['loc'];
+			   var des = arr[j]['des'];
+			   var dir = arr[j]['dir'];
+			   var marked = arr[j]['marked'];
+			   if(marked == 1){
+			       $("#addrlist").append("<li value =\""+loc+"\" id=\""+ind+"\" onclick=\"placeSearch("+ind+")\">"+ind+"&nbsp;"+loc+"&nbsp;"+dir+"&nbsp;"+des+"&nbsp;&nbsp;已标注</li>");
+				  }else{
+			       $("#addrlist").append("<li value =\""+loc+"\" id=\""+ind+"\" onclick=\"placeSearch("+ind+")\">"+ind+"&nbsp;"+loc+"&nbsp;"+dir+"&nbsp;"+des+"</li>");
+				}
+			  }
+			placeSearch(1);    
+		    });	
+	}
+	readFile();		
+</script>
+    <div id="maptips" class=""></div>
+	<div id="tip"> 
+		<b>鼠标左键在地图上单击获取坐标</b>
+		 <br>
+		 <div>X：<input type="text" class="input" id="lngX" name="lngX" readonly/>&nbsp;
+		      Y：<input type="text" class="input" id="latY" name="latY" readonly /></div>
+          
+		 请输入地址:<input type ="text"  class="input" value="" size="33" id="search">&nbsp;&nbsp;
+		 <input type ="button" value="搜索" class="button" onclick="placeSearch()">
+		 <input type ="button" value="保存" class="button" onclick="writeFile()">
+		 <input type ="hidden" value="" name="id" id="id">
+        <ul class="addrlist" id="addrlist">
+        </ul> 
+	</div>
+    <div id="mapContainer"></div> 
+
+    <script type="text/javascript" src="http://webapi.amap.com/maps?v=1.3&key=fd26ee291efb8aaf3dee4c4ac7d6b5fc"></script>
+	<script type="text/javascript">
+		var map = new AMap.Map("mapContainer", {
+			resizeEnable: true,
+			view: new AMap.View2D({
+				center: new AMap.LngLat(116.397428, 39.90923),
+				zoom: 12
+			})
+		});
+		AMap.event.addListener(map, "mousemove", function(a) {
+			var tip=document.getElementById("maptips");
+            tip.innerHTML = a.lnglat.toString();
+        })
+
+		var selfmarker = new AMap.Marker({
+        icon: "http://webapi.amap.com/images/marker_sprite.png",
+        draggable: true
+        }); 
+		//为地图注册鼠标移动事件获取鼠标点击出的经纬度坐标mousemove
+        var clickEventListener=AMap.event.addListener(map,'click',function(e){			
+			document.getElementById("lngX").value=e.lnglat.getLng();
+			document.getElementById("latY").value=e.lnglat.getLat(); 
+
+			selfmarker.setMap(null);
+            selfmarker.setPosition(new AMap.LngLat(e.lnglat.lng, e.lnglat.lat));
+            selfmarker.setMap(map); //在地图上添加点
+		});
+
+		var marker = new Array();
+		var windowsArr = new Array();
+		//基本地图加载
+		function placeSearch(place){
+            map.clearMap();
+			if(typeof place == "number"){   
+			    document.getElementById("id").value = place; 			    	
+			    var childNodes=document.getElementById("addrlist").childNodes; 	
+			    for(var i = 0; i < childNodes.length; i++){
+                    var ch=childNodes[i];
+                    ch.className="";
+			    }		    
+			    document.getElementById(place).className = "color-red";	             
+			    if(arr[place-1]['marked'] == 1){
+			    	var markerOption = {
+					    map:map,
+					    position:new AMap.LngLat(Number(arr[place-1]['x']), Number(arr[place-1]['y'])),
+					    topWhenMouseOver:true					
+				    }
+			        document.getElementById("lngX").value=arr[place-1]['x'];
+				    document.getElementById("latY").value=arr[place-1]['y']; 
+    				document.getElementById("search").value = arr[place-1]['loc']; 
+    				var mar = new AMap.Marker(markerOption);   
+    				mar.setMap(map);	
+    				map.setFitView();
+			    }else{
+				    document.getElementById("lngX").value='';
+					document.getElementById("latY").value='';
+			    }
+			    place = arr[place-1]['loc'];
+			}else{
+				place = document.getElementById("search").value;
+			}
+            document.getElementById("search").value = place; 
+		    var MSearch;
+		    AMap.service(["AMap.PlaceSearch"], function() {       
+		        MSearch = new AMap.PlaceSearch({ //构造地点查询类
+		            pageSize:10,
+		            pageIndex:1,
+		            city:"010" //城市
+		        });
+		        //关键字查询
+		        MSearch.search(place, function(status, result){
+		        	if(status === 'complete' && result.info === 'OK'){
+		        		keywordSearch_CallBack(result);
+		        	}
+		        }); 
+		    });
+		}
+		//添加marker&infowindow   
+		function addmarker(i, d) {
+		    var lngX = d.location.getLng();
+		    var latY = d.location.getLat();
+		    var markerOption = {
+		        map:map,
+		        icon:"http://webapi.amap.com/images/" + (i + 1) + ".png",
+		        position:new AMap.LngLat(lngX, latY),
+		        topWhenMouseOver:true
+		
+		    };
+		    var mar = new AMap.Marker(markerOption);   
+		    marker.push(new AMap.LngLat(lngX, latY));
+		 
+		    var infoWindow = new AMap.InfoWindow({
+		        content:"<h3><font color=\"#00a6ac\">  " + (i + 1) + ". " + d.name + "</font></h3>" + TipContents(d.type, d.address, d.tel),
+		        size:new AMap.Size(300, 0),
+		        autoMove:true, 
+		        offset:new AMap.Pixel(0,-20)
+		    });
+		    windowsArr.push(infoWindow);
+		    var aa = function (e) {
+		    	infoWindow.open(map, mar.getPosition());
+		    };
+		    AMap.event.addListener(mar, "click", aa);
+		}
+		//回调函数
+		function keywordSearch_CallBack(data) {
+		    var resultStr = "";
+		    var poiArr = data.poiList.pois;
+		    var resultCount = poiArr.length;
+		    for (var i = 0; i < resultCount; i++) {
+		        resultStr += "<div id='divid" + (i + 1) + "' onmouseover='openMarkerTipById1(" + i + ",this)' onmouseout='onmouseout_MarkerStyle(" + (i + 1) + ",this)' style=\"font-size: 12px;cursor:pointer;padding:0px 0 4px 2px; border-bottom:1px solid #C1FFC1;\"><table><tr><td><img src=\"http://webapi.amap.com/images/" + (i + 1) + ".png\"></td>" + "<td><h3><font color=\"#00a6ac\">名称: " + poiArr[i].name + "</font></h3>";
+		            resultStr += TipContents(poiArr[i].type, poiArr[i].address, poiArr[i].tel) + "</td></tr></table></div>";
+		            addmarker(i, poiArr[i]);
+		    }
+		    map.setFitView();
+		}
+
+		function TipContents(type, address, tel) {  //窗体内容
+		    if (type == "" || type == "undefined" || type == null || type == " undefined" || typeof type == "undefined") {
+		        type = "暂无";
+		    }
+		    if (address == "" || address == "undefined" || address == null || address == " undefined" || typeof address == "undefined") {
+		        address = "暂无";
+		    }
+		    if (tel == "" || tel == "undefined" || tel == null || tel == " undefined" || typeof address == "tel") {
+		        tel = "暂无";
+		    }
+		    var str = "  地址：" + address + "<br />  电话：" + tel + " <br />  类型：" + type;
+		    return str;
+		}
+
+		function openMarkerTipById1(pointid, thiss) {  //根据id 打开搜索结果点tip
+		    thiss.style.background = '#CAE1FF';
+		    windowsArr[pointid].open(map, marker[pointid]);
+		}
+
+		function onmouseout_MarkerStyle(pointid, thiss) { //鼠标移开后点样式恢复
+		    thiss.style.background = "";
+        } 
+        
+	</script>
+</body>
+</html>

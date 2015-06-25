@@ -9,7 +9,7 @@ class Base_Object {
      * 数据库名
      * @var string
      */
-    protected $dbname = 'xjd';
+    protected $dbname = 'carlovers';
     
     /**
      * 数据表名
